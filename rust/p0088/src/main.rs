@@ -80,10 +80,10 @@ mod partition {
 
     impl SizedPartitionIter {
         pub fn new(n: u32, len: u32) -> Self {
-            SizedPartitionIter::new_with_prefix(n, len, 1)
+            SizedPartitionIter::with_prefix(n, len, 1)
         }
 
-        fn new_with_prefix(n: u32, len: u32, prefix: u32) -> Self {
+        fn with_prefix(n: u32, len: u32, prefix: u32) -> Self {
             assert!(len > 0);
             assert!(n >= len);
             assert!(prefix * len <= n);
@@ -157,14 +157,22 @@ mod partition {
     pub struct PartitionIter {
         n: u32,
         len: u32,
+        max_len: u32,
         sized_partition_iter: SizedPartitionIter,
     }
 
     impl PartitionIter {
         pub fn new(n: u32) -> Self {
+            Self::with_max_len(n, n)
+        }
+
+        pub fn with_max_len(n: u32, max_len: u32) -> Self {
+            assert!(n >= max_len);
+
             PartitionIter {
                 n,
                 len: 1,
+                max_len,
                 sized_partition_iter: SizedPartitionIter::new(n, 1),
             }
         }
@@ -178,7 +186,7 @@ mod partition {
 
             if partition_option.is_some() {
                 partition_option
-            } else if self.len < self.n {
+            } else if self.len < self.max_len {
                 self.len += 1;
                 self.sized_partition_iter = SizedPartitionIter::new(self.n, self.len);
                 // A new SizedPartitionIter should always return at least one partition
@@ -259,13 +267,16 @@ mod factorization {
         m_factorization: Factorization,
         p: u32,
         k: u32,
-        cur_distribution: Vec<Distribution>,
+        unique_factor_distribution: BTreeMap<u32, u32>,
+        distribution_iters: BTreeMap<u32, PartitionIter>,
+        cur_distribution: BTreeMap<u32, BTreeMap<u32, u32>>,
     }
 
     impl DistributionIter {
         fn new(m_factorization: Factorization, p: u32, k: u32) -> Self {
-            let mut cur_distribution: Vec<_> = (0..m_factorization.len()).map(|_| Distribution::new()).collect();
-            cur_distribution[0].insert(k, 1);
+            let mut unique_factor_distribution = m_factorization.keys().map(|&n| (n, 0)).collect();
+            // HERE: I think PartitionIter::new(0) panics, I should probably fix that.
+            let mut distribution_iters = Vec::new();
 
             Self {
                 m_factorization,
